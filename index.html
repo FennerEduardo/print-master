@@ -92,6 +92,18 @@
                 <div id="image-list" class="image-list"></div>
             </div>
 
+            <div class="sidebar-section">
+                <h3><i class="fa-solid fa-layer-group"></i> Páginas</h3>
+                <div class="page-controls">
+                    <button id="add-page" class="btn-secondary btn-full">
+                        <i class="fa-solid fa-plus"></i> Añadir Página
+                    </button>
+                    <div id="page-list-sidebar" class="page-list-sidebar">
+                        <!-- Se llenará dinámicamente -->
+                    </div>
+                </div>
+            </div>
+
             <div class="sidebar-footer">
                 <button id="export-pdf" class="btn-primary">
                     <i class="fa-solid fa-file-pdf"></i> Exportar PDF
@@ -104,11 +116,15 @@
 
         <!-- Área Principal: Lienzo -->
         <main class="canvas-area">
-            <div id="canvas-wrapper">
-                <div id="print-canvas">
-                    <div id="margin-guide"></div>
+            <div id="canvas-scroll-container">
+                <div id="canvas-wrapper">
+                    <!-- Las mesas de trabajo (páginas) se generarán aquí -->
                 </div>
             </div>
+            
+            <!-- Guías de Alineación Globales (se mueven dinámicamente) -->
+            <div id="guide-h" class="alignment-guide horizontal hidden"></div>
+            <div id="guide-v" class="alignment-guide vertical hidden"></div>
             
             <!-- Barra de estado / Herramientas -->
             <div class="status-bar">
