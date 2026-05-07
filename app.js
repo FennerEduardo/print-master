@@ -29,10 +29,11 @@ class PrintApp {
             selectedImageId: null,
             snapThreshold: 10
         };
-
+        this.cropManager = new CropManager();
+        this.filterManager = new FilterManager();
         this.initElements();
         this.initEvents();
-        this.addPage(); // Initial page
+        this.addPage();
     }
 
     initElements() {
@@ -114,6 +115,10 @@ class PrintApp {
         document.getElementById("btn-center-h").addEventListener("click", () => this.centerSelected("h"));
         document.getElementById("btn-center-v").addEventListener("click", () => this.centerSelected("v"));
         document.getElementById("btn-layer-up").addEventListener("click", () => this.bringToFront());
+        document.getElementById("btn-crop").addEventListener("click", () => this.cropSelected());
+        document.getElementById("btn-filter").addEventListener("click", () => this.filterSelected());
+        document.getElementById("btn-dist-h").addEventListener("click", () => this.distributeImages("h"));
+        document.getElementById("btn-dist-v").addEventListener("click", () => this.distributeImages("v"));
         this.btnPolaroid.addEventListener("click", () => this.togglePolaroid());
         this.polaroidTextInput.addEventListener("input", (e) => this.updatePolaroidText(e.target.value));
 
@@ -300,7 +305,8 @@ class PrintApp {
             height: 250,
             rotation: 0,
             polaroid: false,
-            caption: "Recuerdo"
+            caption: "Recuerdo",
+            filter: "none"
         };
 
         const div = document.createElement("div");
@@ -406,66 +412,68 @@ class PrintApp {
 
     handleGuidelines(el, x, y, imgData) {
         const canvas = el.parentElement;
-        const cw = canvas.offsetWidth;
-        const ch = canvas.offsetHeight;
-        const margin = this.state.margin * 3.7795; // mm to px approx
-        
-        const iw = el.offsetWidth;
-        const ih = el.offsetHeight;
-        
-        let snapX = x;
-        let snapY = y;
-        let showH = false;
-        let showV = false;
+        const cw = canvas.offsetWidth, ch = canvas.offsetHeight;
+        const margin = this.state.margin * 3.7795;
+        const iw = el.offsetWidth, ih = el.offsetHeight;
+        const T = this.state.snapThreshold;
+        let snapX = x, snapY = y, showH = false, showV = false;
+        const centerX = cw / 2, centerY = ch / 2;
 
-        const centerX = cw / 2;
-        const centerY = ch / 2;
-        
-        // Horizontal Snapping (Vertical Center Line)
-        if (Math.abs((x + iw/2) - centerX) < this.state.snapThreshold) {
-            snapX = centerX - iw/2;
-            showV = true;
-            this.guideV.style.left = `${centerX * this.state.zoom + canvas.getBoundingClientRect().left - this.canvasWrapper.getBoundingClientRect().left}px`;
-            this.guideV.classList.remove("hidden");
-        } else {
-            this.guideV.classList.add("hidden");
+        // Page center snap
+        if (Math.abs((x + iw/2) - centerX) < T) { snapX = centerX - iw/2; showV = true; }
+        if (Math.abs((y + ih/2) - centerY) < T) { snapY = centerY - ih/2; showH = true; }
+
+        // Margin snap
+        if (Math.abs(x - margin) < T) snapX = margin;
+        if (Math.abs((x + iw) - (cw - margin)) < T) snapX = cw - margin - iw;
+        if (Math.abs(y - margin) < T) snapY = margin;
+        if (Math.abs((y + ih) - (ch - margin)) < T) snapY = ch - margin - ih;
+
+        // Image-to-image snap
+        const page = this.state.pages.find(p => p.element === canvas);
+        if (page) {
+            for (const other of page.images) {
+                if (other.id === imgData.id) continue;
+                const ox = other.x, oy = other.y;
+                const oel = document.getElementById(other.id);
+                if (!oel) continue;
+                const ow = oel.offsetWidth, oh = oel.offsetHeight;
+                // Left edge to left/right edge
+                if (Math.abs(snapX - ox) < T) snapX = ox;
+                if (Math.abs(snapX - (ox + ow)) < T) snapX = ox + ow;
+                // Right edge to left/right edge
+                if (Math.abs((snapX + iw) - ox) < T) snapX = ox - iw;
+                if (Math.abs((snapX + iw) - (ox + ow)) < T) snapX = ox + ow - iw;
+                // Center X to center X
+                if (Math.abs((snapX + iw/2) - (ox + ow/2)) < T) snapX = ox + ow/2 - iw/2;
+                // Top edge to top/bottom edge
+                if (Math.abs(snapY - oy) < T) snapY = oy;
+                if (Math.abs(snapY - (oy + oh)) < T) snapY = oy + oh;
+                // Bottom edge to top/bottom edge
+                if (Math.abs((snapY + ih) - oy) < T) snapY = oy - ih;
+                if (Math.abs((snapY + ih) - (oy + oh)) < T) snapY = oy + oh - ih;
+                // Center Y to center Y
+                if (Math.abs((snapY + ih/2) - (oy + oh/2)) < T) snapY = oy + oh/2 - ih/2;
+            }
         }
 
-        // Vertical Snapping (Horizontal Center Line)
-        if (Math.abs((y + ih/2) - centerY) < this.state.snapThreshold) {
-            snapY = centerY - ih/2;
-            showH = true;
-            this.guideH.style.top = `${centerY * this.state.zoom + canvas.getBoundingClientRect().top - this.canvasWrapper.getBoundingClientRect().top}px`;
-            this.guideH.classList.remove("hidden");
-        } else {
-            this.guideH.classList.add("hidden");
-        }
+        imgData.x = snapX; imgData.y = snapY;
+        el.style.left = `${snapX}px`; el.style.top = `${snapY}px`;
 
-        // Margin Snapping
-        if (Math.abs(x - margin) < this.state.snapThreshold) snapX = margin;
-        if (Math.abs((x + iw) - (cw - margin)) < this.state.snapThreshold) snapX = cw - margin - iw;
-        if (Math.abs(y - margin) < this.state.snapThreshold) snapY = margin;
-        if (Math.abs((y + ih) - (ch - margin)) < this.state.snapThreshold) snapY = ch - margin - ih;
-
-        imgData.x = snapX;
-        imgData.y = snapY;
-        el.style.left = `${snapX}px`;
-        el.style.top = `${snapY}px`;
-        
-        // Update Guides Position relative to viewport/scroll
+        // Update guide lines
+        if (showV) this.guideV.classList.remove("hidden"); else this.guideV.classList.add("hidden");
+        if (showH) this.guideH.classList.remove("hidden"); else this.guideH.classList.add("hidden");
         if (showV) {
-            const rect = canvas.getBoundingClientRect();
-            const wrapperRect = this.canvasWrapper.getBoundingClientRect();
-            this.guideV.style.left = `${rect.left - wrapperRect.left + (cw * this.state.zoom / 2)}px`;
+            const r = canvas.getBoundingClientRect(), wr = this.canvasWrapper.getBoundingClientRect();
+            this.guideV.style.left = `${r.left - wr.left + (cw * this.state.zoom / 2)}px`;
             this.guideV.style.height = `${ch * this.state.zoom}px`;
-            this.guideV.style.top = `${rect.top - wrapperRect.top}px`;
+            this.guideV.style.top = `${r.top - wr.top}px`;
         }
         if (showH) {
-            const rect = canvas.getBoundingClientRect();
-            const wrapperRect = this.canvasWrapper.getBoundingClientRect();
-            this.guideH.style.top = `${rect.top - wrapperRect.top + (ch * this.state.zoom / 2)}px`;
+            const r = canvas.getBoundingClientRect(), wr = this.canvasWrapper.getBoundingClientRect();
+            this.guideH.style.top = `${r.top - wr.top + (ch * this.state.zoom / 2)}px`;
             this.guideH.style.width = `${cw * this.state.zoom}px`;
-            this.guideH.style.left = `${rect.left - wrapperRect.left}px`;
+            this.guideH.style.left = `${r.left - wr.left}px`;
         }
     }
 
@@ -639,6 +647,63 @@ class PrintApp {
         if (!this.state.selectedImageId) return;
         const el = document.getElementById(this.state.selectedImageId);
         el.parentElement.appendChild(el);
+    }
+
+    cropSelected() {
+        if (!this.state.selectedImageId) return;
+        const imgData = this.state.pages.flatMap(p => p.images).find(i => i.id === this.state.selectedImageId);
+        this.cropManager.open(imgData.src, (croppedSrc) => {
+            imgData.src = croppedSrc;
+            const el = document.getElementById(imgData.id);
+            const img = el.querySelector("img");
+            img.src = croppedSrc;
+            img.onload = () => {
+                const aspect = img.naturalHeight / img.naturalWidth;
+                imgData.height = imgData.width * aspect;
+                el.style.height = imgData.polaroid ? "auto" : `${imgData.height}px`;
+            };
+            this.updateThumbnails();
+        });
+    }
+
+    filterSelected() {
+        if (!this.state.selectedImageId) return;
+        const imgData = this.state.pages.flatMap(p => p.images).find(i => i.id === this.state.selectedImageId);
+        this.filterManager.open(imgData.src, imgData.filter, (filterStr) => {
+            imgData.filter = filterStr;
+            const el = document.getElementById(imgData.id);
+            el.querySelector("img").style.filter = filterStr;
+        });
+    }
+
+    distributeImages(axis) {
+        const page = this.state.pages.find(p => p.id === this.state.currentPageId);
+        if (!page || page.images.length < 2) return;
+        const canvas = page.element;
+        const cw = canvas.offsetWidth, ch = canvas.offsetHeight;
+        const margin = this.state.margin * 3.7795;
+        const imgs = page.images.slice().sort((a, b) => axis === "h" ? a.x - b.x : a.y - b.y);
+        if (axis === "h") {
+            let totalW = 0;
+            imgs.forEach(img => { const el = document.getElementById(img.id); totalW += el.offsetWidth; });
+            const space = (cw - 2 * margin - totalW) / (imgs.length - 1);
+            let cx = margin;
+            imgs.forEach(img => {
+                const el = document.getElementById(img.id);
+                img.x = cx; el.style.left = `${cx}px`;
+                cx += el.offsetWidth + space;
+            });
+        } else {
+            let totalH = 0;
+            imgs.forEach(img => { const el = document.getElementById(img.id); totalH += el.offsetHeight; });
+            const space = (ch - 2 * margin - totalH) / (imgs.length - 1);
+            let cy = margin;
+            imgs.forEach(img => {
+                const el = document.getElementById(img.id);
+                img.y = cy; el.style.top = `${cy}px`;
+                cy += el.offsetHeight + space;
+            });
+        }
     }
 
     clearAll() {

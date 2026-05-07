@@ -122,7 +122,7 @@
                 </div>
             </div>
             
-            <!-- Guías de Alineación Globales (se mueven dinámicamente) -->
+            <!-- Guías de Alineación Globales -->
             <div id="guide-h" class="alignment-guide horizontal hidden"></div>
             <div id="guide-v" class="alignment-guide vertical hidden"></div>
             
@@ -137,21 +137,85 @@
                     <button id="btn-center-h" title="Centrar Horizontal"><i class="fa-solid fa-arrows-left-right-to-line"></i></button>
                     <button id="btn-center-v" title="Centrar Vertical"><i class="fa-solid fa-arrows-up-down-to-line"></i></button>
                     <div class="tool-separator"></div>
+                    <button id="btn-crop" title="Recortar (Máscara)"><i class="fa-solid fa-crop-simple"></i></button>
+                    <button id="btn-filter" title="Filtros"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+                    <div class="tool-separator"></div>
                     <button id="btn-polaroid" title="Efecto Polaroid"><i class="fa-solid fa-camera-retro"></i></button>
                     <input type="text" id="polaroid-text-input" class="polaroid-input hidden" placeholder="Escribe aquí...">
                     <div class="tool-separator"></div>
                     <button id="btn-duplicate" title="Duplicar"><i class="fa-solid fa-copy"></i></button>
                     <button id="btn-rotate" title="Rotar 90°"><i class="fa-solid fa-rotate"></i></button>
                     <button id="btn-layer-up" title="Traer al Frente"><i class="fa-solid fa-layer-group"></i></button>
+                    <div class="tool-separator"></div>
+                    <button id="btn-dist-h" title="Distribuir Horizontalmente"><i class="fa-solid fa-distribute-spacing-horizontal fa-grip-lines-vertical"></i></button>
+                    <button id="btn-dist-v" title="Distribuir Verticalmente"><i class="fa-solid fa-grip-lines"></i></button>
+                    <div class="tool-separator"></div>
                     <button id="btn-delete" title="Eliminar" class="danger"><i class="fa-solid fa-trash"></i></button>
                 </div>
             </div>
         </main>
     </div>
 
+    <!-- Modal de Recorte -->
+    <div id="crop-modal" class="modal-overlay hidden">
+        <div class="modal-content crop-modal-content">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-crop-simple"></i> Recortar Imagen</h2>
+                <button id="crop-cancel" class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="crop-workspace">
+                <div class="crop-canvas-wrapper">
+                    <canvas id="crop-canvas"></canvas>
+                    <div id="crop-selection" class="crop-selection"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="crop-reset" class="btn-secondary"><i class="fa-solid fa-arrows-rotate"></i> Restablecer</button>
+                <button id="crop-apply" class="btn-primary"><i class="fa-solid fa-check"></i> Aplicar Recorte</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Filtros -->
+    <div id="filter-modal" class="modal-overlay hidden">
+        <div class="modal-content filter-modal-content">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-wand-magic-sparkles"></i> Filtros</h2>
+                <button id="filter-cancel" class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="filter-workspace">
+                <div class="filter-preview-wrapper">
+                    <img id="filter-preview" src="" alt="Vista previa">
+                </div>
+                <div class="filter-grid" id="filter-grid">
+                    <!-- Se llenan dinámicamente -->
+                </div>
+            </div>
+            <div class="filter-sliders" id="filter-sliders">
+                <div class="control-group">
+                    <label>Brillo</label>
+                    <input type="range" id="filter-brightness" min="0" max="200" value="100">
+                </div>
+                <div class="control-group">
+                    <label>Contraste</label>
+                    <input type="range" id="filter-contrast" min="0" max="200" value="100">
+                </div>
+                <div class="control-group">
+                    <label>Saturación</label>
+                    <input type="range" id="filter-saturate" min="0" max="200" value="100">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="filter-reset" class="btn-secondary"><i class="fa-solid fa-arrows-rotate"></i> Restablecer</button>
+                <button id="filter-apply" class="btn-primary"><i class="fa-solid fa-check"></i> Aplicar Filtro</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="tools.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
