@@ -274,22 +274,28 @@ class PrintApp {
     }
 
     handleFiles(files) {
+        let fileIndex = 0;
         Array.from(files).forEach(file => {
             if (file.type.startsWith("image/")) {
+                const idx = fileIndex++;
                 const reader = new FileReader();
-                reader.onload = (e) => this.addImage(e.target.result);
+                reader.onload = (e) => this.addImage(e.target.result, idx);
                 reader.readAsDataURL(file);
             }
         });
     }
 
-    addImage(src) {
+    addImage(src, batchIndex = 0) {
         const id = "img-" + Date.now() + Math.random().toString(36).substr(2, 5);
+        const activePage = this.state.pages.find(p => p.id === this.state.currentPageId);
+        const existingCount = activePage.images.length;
+        const offset = (existingCount + batchIndex) * 30;
+        
         const imgObj = {
             id,
             src,
-            x: 50,
-            y: 50,
+            x: 40 + offset,
+            y: 40 + offset,
             width: 250,
             height: 250,
             rotation: 0,
@@ -332,7 +338,6 @@ class PrintApp {
         div.appendChild(imgContainer);
         div.appendChild(captionDiv);
         
-        const activePage = this.state.pages.find(p => p.id === this.state.currentPageId);
         activePage.element.appendChild(div);
         activePage.images.push(imgObj);
         
@@ -381,12 +386,17 @@ class PrintApp {
                 }
             };
 
-            const onMouseUp = () => {
+            const onMouseUp = (e) => {
                 isDragging = false;
                 isResizing = false;
                 this.hideGuides();
                 document.removeEventListener("mousemove", onMouseMove);
                 document.removeEventListener("mouseup", onMouseUp);
+                
+                // Cross-page drag: detect if image was dropped over a different page
+                if (!isResizing) {
+                    this.checkCrossPageDrop(el, imgData, e);
+                }
             };
 
             document.addEventListener("mousemove", onMouseMove);
@@ -462,6 +472,51 @@ class PrintApp {
     hideGuides() {
         this.guideH.classList.add("hidden");
         this.guideV.classList.add("hidden");
+    }
+
+    checkCrossPageDrop(el, imgData, mouseEvent) {
+        const mouseX = mouseEvent.clientX;
+        const mouseY = mouseEvent.clientY;
+        
+        // Find which page the mouse is over
+        for (const page of this.state.pages) {
+            const pageContainer = page.element.parentElement;
+            const rect = pageContainer.getBoundingClientRect();
+            
+            if (mouseX >= rect.left && mouseX <= rect.right && mouseY >= rect.top && mouseY <= rect.bottom) {
+                // Check if this is a different page than the current parent
+                const currentCanvas = el.parentElement;
+                if (currentCanvas !== page.element) {
+                    // Remove from old page's data
+                    for (const p of this.state.pages) {
+                        const idx = p.images.findIndex(img => img.id === imgData.id);
+                        if (idx !== -1) {
+                            p.images.splice(idx, 1);
+                            break;
+                        }
+                    }
+                    
+                    // Calculate new position relative to target page
+                    const targetRect = page.element.getBoundingClientRect();
+                    const newX = (mouseX - targetRect.left) / this.state.zoom - el.offsetWidth / 2;
+                    const newY = (mouseY - targetRect.top) / this.state.zoom - el.offsetHeight / 2;
+                    
+                    imgData.x = Math.max(0, newX);
+                    imgData.y = Math.max(0, newY);
+                    el.style.left = `${imgData.x}px`;
+                    el.style.top = `${imgData.y}px`;
+                    
+                    // Move DOM element to new page
+                    page.element.appendChild(el);
+                    page.images.push(imgData);
+                    
+                    // Select the target page
+                    this.selectPage(page.id);
+                    this.updateThumbnails();
+                }
+                break;
+            }
+        }
     }
 
     selectImage(id) {
