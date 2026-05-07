@@ -929,7 +929,8 @@ class PrintApp {
         const allImages = this.state.pages.flatMap(p => p.images);
         
         for (const imgData of allImages) {
-            if (imgData.rotation !== 0 || (imgData.filter && imgData.filter !== 'none')) {
+            // Only flatten filters. Let html2canvas handle rotation on the div level
+            if (imgData.filter && imgData.filter !== 'none') {
                 const el = document.getElementById(imgData.id);
                 if (!el) continue;
                 const imgEl = el.querySelector('img');
@@ -937,7 +938,6 @@ class PrintApp {
                 flattenedData.push({
                     id: imgData.id,
                     originalSrc: imgEl.src,
-                    originalTransform: el.style.transform,
                     originalFilter: imgEl.style.filter
                 });
 
@@ -954,49 +954,22 @@ class PrintApp {
                 const w = img.naturalWidth || imgData.width;
                 const h = img.naturalHeight || imgData.height;
                 
-                const rad = imgData.rotation * Math.PI / 180;
-                const sin = Math.abs(Math.sin(rad));
-                const cos = Math.abs(Math.cos(rad));
-                
-                const newW = w * cos + h * sin;
-                const newH = w * sin + h * cos;
-                
-                tempCanvas.width = newW;
-                tempCanvas.height = newH;
-                
-                ctx.translate(newW / 2, newH / 2);
-                ctx.rotate(rad);
+                tempCanvas.width = w;
+                tempCanvas.height = h;
                 
                 if (imgData.filter && imgData.filter !== 'none') {
                     ctx.filter = imgData.filter;
                 }
                 
-                ctx.drawImage(img, -w / 2, -h / 2, w, h);
+                ctx.drawImage(img, 0, 0, w, h);
                 
                 imgEl.src = tempCanvas.toDataURL("image/png", 1.0);
-                el.style.transform = 'none';
                 imgEl.style.filter = 'none';
                 el.style.opacity = '1';
-                
-                el.dataset.oldWidth = el.style.width;
-                el.dataset.oldHeight = el.style.height;
-                const aspectW = newW / w;
-                const aspectH = newH / h;
-                el.style.width = `${imgData.width * aspectW}px`;
-                if (!imgData.polaroid) {
-                    el.style.height = `${imgData.height * aspectH}px`;
-                }
-                
-                const dw = (imgData.width * aspectW - imgData.width) / 2;
-                const dh = (imgData.height * aspectH - imgData.height) / 2;
-                el.dataset.oldLeft = el.style.left;
-                el.dataset.oldTop = el.style.top;
-                el.style.left = `${imgData.x - dw}px`;
-                el.style.top = `${imgData.y - dh}px`;
             }
         }
         // Give time for browser to process base64 src changes
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 300));
         return flattenedData;
     }
 
@@ -1007,13 +980,7 @@ class PrintApp {
             const imgEl = el.querySelector('img');
             
             imgEl.src = data.originalSrc;
-            el.style.transform = data.originalTransform;
             imgEl.style.filter = data.originalFilter;
-            
-            if (el.dataset.oldWidth) el.style.width = el.dataset.oldWidth;
-            if (el.dataset.oldHeight) el.style.height = el.dataset.oldHeight;
-            if (el.dataset.oldLeft) el.style.left = el.dataset.oldLeft;
-            if (el.dataset.oldTop) el.style.top = el.dataset.oldTop;
         }
     }
 
@@ -1061,6 +1028,7 @@ class PrintApp {
                     box-shadow: none !important;
                 }
                 .placed-image img { transition: none !important; filter: none !important; }
+                #print-canvas { overflow: visible !important; }
             `;
             document.head.appendChild(style);
 
