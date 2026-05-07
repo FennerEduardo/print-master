@@ -29,11 +29,15 @@ class PrintApp {
             selectedImageId: null,
             snapThreshold: 10
         };
+        this.history = [];
+        this.historyIndex = -1;
+        this.maxHistory = 50;
         this.cropManager = new CropManager();
         this.filterManager = new FilterManager();
         this.initElements();
         this.initEvents();
         this.addPage();
+        this.saveState();
     }
 
     initElements() {
@@ -58,6 +62,12 @@ class PrintApp {
         this.pageListSidebar = document.getElementById("page-list-sidebar");
         this.guideH = document.getElementById("guide-h");
         this.guideV = document.getElementById("guide-v");
+        this.edgeGuides = [
+            document.getElementById("edge-guide-h1"),
+            document.getElementById("edge-guide-h2"),
+            document.getElementById("edge-guide-v1"),
+            document.getElementById("edge-guide-v2")
+        ];
     }
 
     initEvents() {
@@ -125,6 +135,16 @@ class PrintApp {
         this.resetBtn.addEventListener("click", () => this.clearAll());
         this.exportBtn.addEventListener("click", () => this.exportToPDF());
         this.addPageBtn.addEventListener("click", () => this.addPage());
+        document.getElementById("btn-undo").addEventListener("click", () => this.undo());
+        document.getElementById("btn-redo").addEventListener("click", () => this.redo());
+
+        // Keyboard shortcuts
+        window.addEventListener("keydown", (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if (e.ctrlKey && e.key === 'z') { e.preventDefault(); this.undo(); }
+            if (e.ctrlKey && e.key === 'y') { e.preventDefault(); this.redo(); }
+            if (e.key === 'Delete' && this.state.selectedImageId) this.deleteSelected();
+        });
 
         window.addEventListener("mousedown", (e) => {
             if (e.target.closest(".page-container")) {
@@ -319,7 +339,6 @@ class PrintApp {
         const imgContainer = document.createElement("div");
         imgContainer.className = "img-container";
         imgContainer.style.width = "100%";
-        imgContainer.style.overflow = "hidden";
         
         const img = new Image();
         img.src = src;
@@ -403,6 +422,7 @@ class PrintApp {
                 if (!isResizing) {
                     this.checkCrossPageDrop(el, imgData, e);
                 }
+                this.saveState();
             };
 
             document.addEventListener("mousemove", onMouseMove);
@@ -431,6 +451,8 @@ class PrintApp {
 
         // Image-to-image snap
         const page = this.state.pages.find(p => p.element === canvas);
+        let edgeIdx = 0;
+        this.edgeGuides.forEach(g => g.classList.add("hidden"));
         if (page) {
             for (const other of page.images) {
                 if (other.id === imgData.id) continue;
@@ -438,48 +460,70 @@ class PrintApp {
                 const oel = document.getElementById(other.id);
                 if (!oel) continue;
                 const ow = oel.offsetWidth, oh = oel.offsetHeight;
-                // Left edge to left/right edge
-                if (Math.abs(snapX - ox) < T) snapX = ox;
-                if (Math.abs(snapX - (ox + ow)) < T) snapX = ox + ow;
-                // Right edge to left/right edge
-                if (Math.abs((snapX + iw) - ox) < T) snapX = ox - iw;
-                if (Math.abs((snapX + iw) - (ox + ow)) < T) snapX = ox + ow - iw;
-                // Center X to center X
-                if (Math.abs((snapX + iw/2) - (ox + ow/2)) < T) snapX = ox + ow/2 - iw/2;
-                // Top edge to top/bottom edge
-                if (Math.abs(snapY - oy) < T) snapY = oy;
-                if (Math.abs(snapY - (oy + oh)) < T) snapY = oy + oh;
-                // Bottom edge to top/bottom edge
-                if (Math.abs((snapY + ih) - oy) < T) snapY = oy - ih;
-                if (Math.abs((snapY + ih) - (oy + oh)) < T) snapY = oy + oh - ih;
-                // Center Y to center Y
-                if (Math.abs((snapY + ih/2) - (oy + oh/2)) < T) snapY = oy + oh/2 - ih/2;
+                const r = canvas.getBoundingClientRect();
+
+                // Vertical alignment (X axis)
+                let vSnap = null;
+                if (Math.abs(snapX - ox) < T) { snapX = ox; vSnap = ox; }
+                else if (Math.abs(snapX - (ox + ow)) < T) { snapX = ox + ow; vSnap = ox + ow; }
+                else if (Math.abs((snapX + iw) - ox) < T) { snapX = ox - iw; vSnap = ox; }
+                else if (Math.abs((snapX + iw) - (ox + ow)) < T) { snapX = ox + ow - iw; vSnap = ox + ow; }
+                else if (Math.abs((snapX + iw/2) - (ox + ow/2)) < T) { snapX = ox + ow/2 - iw/2; vSnap = ox + ow/2; }
+
+                if (vSnap !== null && edgeIdx < 4) {
+                    const g = this.edgeGuides[edgeIdx++];
+                    g.classList.remove("hidden");
+                    g.classList.add("vertical"); g.classList.remove("horizontal");
+                    g.style.left = `${r.left + vSnap * this.state.zoom}px`;
+                    g.style.top = `${r.top}px`;
+                    g.style.height = `${r.height}px`;
+                    g.style.width = '1px';
+                }
+
+                // Horizontal alignment (Y axis)
+                let hSnap = null;
+                if (Math.abs(snapY - oy) < T) { snapY = oy; hSnap = oy; }
+                else if (Math.abs(snapY - (oy + oh)) < T) { snapY = oy + oh; hSnap = oy + oh; }
+                else if (Math.abs((snapY + ih) - oy) < T) { snapY = oy - ih; hSnap = oy; }
+                else if (Math.abs((snapY + ih) - (oy + oh)) < T) { snapY = oy + oh - ih; hSnap = oy + oh; }
+                else if (Math.abs((snapY + ih/2) - (oy + oh/2)) < T) { snapY = oy + oh/2 - ih/2; hSnap = oy + oh/2; }
+
+                if (hSnap !== null && edgeIdx < 4) {
+                    const g = this.edgeGuides[edgeIdx++];
+                    g.classList.remove("hidden");
+                    g.classList.add("horizontal"); g.classList.remove("vertical");
+                    g.style.top = `${r.top + hSnap * this.state.zoom}px`;
+                    g.style.left = `${r.left}px`;
+                    g.style.width = `${r.width}px`;
+                    g.style.height = '1px';
+                }
             }
         }
 
         imgData.x = snapX; imgData.y = snapY;
         el.style.left = `${snapX}px`; el.style.top = `${snapY}px`;
 
-        // Update guide lines
+        // Update guide lines (position: fixed)
         if (showV) this.guideV.classList.remove("hidden"); else this.guideV.classList.add("hidden");
         if (showH) this.guideH.classList.remove("hidden"); else this.guideH.classList.add("hidden");
         if (showV) {
-            const r = canvas.getBoundingClientRect(), wr = this.canvasWrapper.getBoundingClientRect();
-            this.guideV.style.left = `${r.left - wr.left + (cw * this.state.zoom / 2)}px`;
-            this.guideV.style.height = `${ch * this.state.zoom}px`;
-            this.guideV.style.top = `${r.top - wr.top}px`;
+            const r = canvas.getBoundingClientRect();
+            this.guideV.style.left = `${r.left + (cw * this.state.zoom / 2)}px`;
+            this.guideV.style.height = `${r.height}px`;
+            this.guideV.style.top = `${r.top}px`;
         }
         if (showH) {
-            const r = canvas.getBoundingClientRect(), wr = this.canvasWrapper.getBoundingClientRect();
-            this.guideH.style.top = `${r.top - wr.top + (ch * this.state.zoom / 2)}px`;
-            this.guideH.style.width = `${cw * this.state.zoom}px`;
-            this.guideH.style.left = `${r.left - wr.left}px`;
+            const r = canvas.getBoundingClientRect();
+            this.guideH.style.top = `${r.top + (r.height / 2)}px`;
+            this.guideH.style.width = `${r.width}px`;
+            this.guideH.style.left = `${r.left}px`;
         }
     }
 
     hideGuides() {
         this.guideH.classList.add("hidden");
         this.guideV.classList.add("hidden");
+        this.edgeGuides.forEach(g => g.classList.add("hidden"));
     }
 
     checkCrossPageDrop(el, imgData, mouseEvent) {
@@ -563,6 +607,7 @@ class PrintApp {
         } else {
             el.style.height = `${imgData.width * aspect}px`;
         }
+        this.saveState();
     }
 
     updatePolaroidText(text) {
@@ -584,6 +629,7 @@ class PrintApp {
         });
         this.selectImage(null);
         this.updateThumbnails();
+        this.saveState();
     }
 
     rotateSelected() {
@@ -592,8 +638,8 @@ class PrintApp {
         const imgData = allImages.find(img => img.id === this.state.selectedImageId);
         const el = document.getElementById(this.state.selectedImageId);
         imgData.rotation = (imgData.rotation + 90) % 360;
-        const img = el.querySelector("img");
-        img.style.transform = `rotate(${imgData.rotation}deg)`;
+        el.style.transform = `rotate(${imgData.rotation}deg)`;
+        this.saveState();
     }
 
     duplicateSelected() {
@@ -622,8 +668,13 @@ class PrintApp {
             el.querySelector(".polaroid-caption").innerText = lastImg.caption;
             el.style.height = "auto";
         }
-        el.querySelector("img").style.transform = `rotate(${lastImg.rotation}deg)`;
+        el.style.transform = `rotate(${lastImg.rotation}deg)`;
+        if (imgData.filter && imgData.filter !== 'none') {
+            lastImg.filter = imgData.filter;
+            el.querySelector("img").style.filter = imgData.filter;
+        }
         this.selectImage(lastImg.id);
+        this.saveState();
     }
 
     centerSelected(axis) {
@@ -641,6 +692,7 @@ class PrintApp {
             imgData.y = (canvasH - el.offsetHeight) / 2;
             el.style.top = `${imgData.y}px`;
         }
+        this.saveState();
     }
 
     bringToFront() {
@@ -663,16 +715,23 @@ class PrintApp {
                 el.style.height = imgData.polaroid ? "auto" : `${imgData.height}px`;
             };
             this.updateThumbnails();
+            this.saveState();
         });
     }
 
     filterSelected() {
         if (!this.state.selectedImageId) return;
-        const imgData = this.state.pages.flatMap(p => p.images).find(i => i.id === this.state.selectedImageId);
+        const selId = this.state.selectedImageId;
+        const imgData = this.state.pages.flatMap(p => p.images).find(i => i.id === selId);
+        if (!imgData) return;
         this.filterManager.open(imgData.src, imgData.filter, (filterStr) => {
             imgData.filter = filterStr;
-            const el = document.getElementById(imgData.id);
-            el.querySelector("img").style.filter = filterStr;
+            const el = document.getElementById(selId);
+            if (el) {
+                const img = el.querySelector("img");
+                img.style.filter = filterStr;
+            }
+            this.saveState();
         });
     }
 
@@ -704,6 +763,7 @@ class PrintApp {
                 cy += el.offsetHeight + space;
             });
         }
+        this.saveState();
     }
 
     clearAll() {
@@ -727,6 +787,231 @@ class PrintApp {
             thumb.addEventListener("click", () => this.selectImage(img.id));
             list.appendChild(thumb);
         });
+    }
+
+    saveState() {
+        if (this.isRestoring) return;
+        const state = {
+            pages: this.state.pages.map(p => ({
+                id: p.id,
+                images: p.images.map(img => ({...img}))
+            })),
+            paperSize: this.state.paperSize,
+            orientation: this.state.orientation,
+            customWidth: this.state.customWidth,
+            customHeight: this.state.customHeight,
+            margin: this.state.margin
+        };
+        this.history = this.history.slice(0, this.historyIndex + 1);
+        this.history.push(JSON.stringify(state));
+        if (this.history.length > this.maxHistory) {
+            this.history.shift();
+        } else {
+            this.historyIndex++;
+        }
+    }
+
+    undo() {
+        if (this.historyIndex > 0) {
+            this.historyIndex--;
+            this.restoreState();
+        }
+    }
+
+    redo() {
+        if (this.historyIndex < this.history.length - 1) {
+            this.historyIndex++;
+            this.restoreState();
+        }
+    }
+
+    restoreState() {
+        this.isRestoring = true;
+        const state = JSON.parse(this.history[this.historyIndex]);
+        
+        this.canvasWrapper.innerHTML = "";
+        this.state.pages = state.pages.map(p => ({
+            id: p.id,
+            images: p.images,
+            element: null
+        }));
+
+        this.state.paperSize = state.paperSize;
+        this.state.orientation = state.orientation;
+        this.state.customWidth = state.customWidth;
+        this.state.customHeight = state.customHeight;
+        this.state.margin = state.margin;
+
+        this.paperSizeSelect.value = state.paperSize;
+        this.customSizeControls.classList.toggle("hidden", state.paperSize !== "custom");
+        this.customWidthInput.value = state.customWidth;
+        this.customHeightInput.value = state.customHeight;
+        this.btnPortrait.classList.toggle("active", state.orientation === "portrait");
+        this.btnLandscape.classList.toggle("active", state.orientation === "landscape");
+        this.marginInput.value = state.margin;
+        this.marginDisplay.innerText = `${state.margin} mm`;
+
+        this.state.pages.forEach((p, i) => {
+            const pageContainer = document.createElement("div");
+            pageContainer.className = "page-container";
+            pageContainer.id = "page-" + p.id;
+            
+            const label = document.createElement("div");
+            label.className = "page-number-label";
+            label.innerText = `Página ${i + 1}`;
+            
+            const canvas = document.createElement("div");
+            canvas.id = "print-canvas";
+            
+            const marginGuide = document.createElement("div");
+            marginGuide.id = "margin-guide";
+            
+            canvas.appendChild(marginGuide);
+            pageContainer.appendChild(label);
+            pageContainer.appendChild(canvas);
+            this.canvasWrapper.appendChild(pageContainer);
+            
+            p.element = canvas;
+
+            p.images.forEach(imgObj => {
+                const div = document.createElement("div");
+                div.className = "placed-image";
+                div.id = imgObj.id;
+                div.style.left = `${imgObj.x}px`;
+                div.style.top = `${imgObj.y}px`;
+                div.style.width = `${imgObj.width}px`;
+                if (imgObj.polaroid) {
+                    div.style.height = "auto";
+                    div.classList.add("polaroid");
+                } else {
+                    div.style.height = `${imgObj.height}px`;
+                }
+                div.style.transform = `rotate(${imgObj.rotation}deg)`;
+
+                const imgContainer = document.createElement("div");
+                imgContainer.className = "img-container";
+                imgContainer.style.width = "100%";
+                
+                const img = new Image();
+                img.src = imgObj.src;
+                img.style.width = "100%";
+                img.style.display = "block";
+                if (imgObj.filter && imgObj.filter !== 'none') {
+                    img.style.filter = imgObj.filter;
+                }
+
+                const resizer = document.createElement("div");
+                resizer.className = "resizer br";
+                div.appendChild(resizer);
+                
+                const captionDiv = document.createElement("div");
+                captionDiv.className = "polaroid-caption" + (imgObj.polaroid ? "" : " hidden");
+                captionDiv.innerText = imgObj.caption;
+
+                imgContainer.appendChild(img);
+                div.appendChild(imgContainer);
+                div.appendChild(captionDiv);
+                
+                p.element.appendChild(div);
+                this.initManipulation(div, imgObj);
+            });
+        });
+
+        this.selectImage(null);
+        this.updateAllPages();
+        this.renderPageList();
+        this.updateThumbnails();
+        this.isRestoring = false;
+    }
+
+    async flattenForCapture() {
+        const flattenedData = [];
+        const allImages = this.state.pages.flatMap(p => p.images);
+        
+        for (const imgData of allImages) {
+            if (imgData.rotation !== 0 || (imgData.filter && imgData.filter !== 'none')) {
+                const el = document.getElementById(imgData.id);
+                if (!el) continue;
+                const imgEl = el.querySelector('img');
+                
+                flattenedData.push({
+                    id: imgData.id,
+                    originalSrc: imgEl.src,
+                    originalTransform: el.style.transform,
+                    originalFilter: imgEl.style.filter
+                });
+
+                const tempCanvas = document.createElement("canvas");
+                const ctx = tempCanvas.getContext("2d");
+                
+                const img = new Image();
+                img.src = imgData.src;
+                await new Promise(r => {
+                    img.onload = r;
+                    img.onerror = r;
+                });
+
+                const w = img.naturalWidth || imgData.width;
+                const h = img.naturalHeight || imgData.height;
+                
+                const rad = imgData.rotation * Math.PI / 180;
+                const sin = Math.abs(Math.sin(rad));
+                const cos = Math.abs(Math.cos(rad));
+                
+                const newW = w * cos + h * sin;
+                const newH = w * sin + h * cos;
+                
+                tempCanvas.width = newW;
+                tempCanvas.height = newH;
+                
+                ctx.translate(newW / 2, newH / 2);
+                ctx.rotate(rad);
+                
+                if (imgData.filter && imgData.filter !== 'none') {
+                    ctx.filter = imgData.filter;
+                }
+                
+                ctx.drawImage(img, -w / 2, -h / 2, w, h);
+                
+                imgEl.src = tempCanvas.toDataURL("image/png");
+                el.style.transform = 'none';
+                imgEl.style.filter = 'none';
+                
+                el.dataset.oldWidth = el.style.width;
+                el.dataset.oldHeight = el.style.height;
+                const aspectW = newW / w;
+                const aspectH = newH / h;
+                el.style.width = `${imgData.width * aspectW}px`;
+                if (!imgData.polaroid) {
+                    el.style.height = `${imgData.height * aspectH}px`;
+                }
+                
+                const dw = (imgData.width * aspectW - imgData.width) / 2;
+                const dh = (imgData.height * aspectH - imgData.height) / 2;
+                el.dataset.oldLeft = el.style.left;
+                el.dataset.oldTop = el.style.top;
+                el.style.left = `${imgData.x - dw}px`;
+                el.style.top = `${imgData.y - dh}px`;
+            }
+        }
+        return flattenedData;
+    }
+
+    restoreAfterCapture(flattenedData) {
+        for (const data of flattenedData) {
+            const el = document.getElementById(data.id);
+            if (!el) continue;
+            const imgEl = el.querySelector('img');
+            
+            imgEl.src = data.originalSrc;
+            el.style.transform = data.originalTransform;
+            imgEl.style.filter = data.originalFilter;
+            
+            if (el.dataset.oldWidth) el.style.width = el.dataset.oldWidth;
+            if (el.dataset.oldHeight) el.style.height = el.dataset.oldHeight;
+            if (el.dataset.oldLeft) el.style.left = el.dataset.oldLeft;
+            if (el.dataset.oldTop) el.style.top = el.dataset.oldTop;
+        }
     }
 
     async exportToPDF() {
@@ -760,6 +1045,9 @@ class PrintApp {
                 format: [w, h]
             });
 
+            // Flatten rotated and filtered images
+            const flattenedData = await this.flattenForCapture();
+
             for (let i = 0; i < this.state.pages.length; i++) {
                 const page = this.state.pages[i];
                 const canvasEl = page.element;
@@ -779,6 +1067,9 @@ class PrintApp {
                 if (i > 0) pdf.addPage([w, h], this.state.orientation);
                 pdf.addImage(imgData, "JPEG", 0, 0, w, h);
             }
+
+            // Restore elements
+            this.restoreAfterCapture(flattenedData);
 
             pdf.save(`PrintMaster_Proyecto_${Date.now()}.pdf`);
 

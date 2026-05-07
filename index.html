@@ -125,10 +125,18 @@
             <!-- Guías de Alineación Globales -->
             <div id="guide-h" class="alignment-guide horizontal hidden"></div>
             <div id="guide-v" class="alignment-guide vertical hidden"></div>
+            <!-- Edge guides for image-to-image snapping -->
+            <div id="edge-guide-h1" class="alignment-guide horizontal edge-guide hidden"></div>
+            <div id="edge-guide-h2" class="alignment-guide horizontal edge-guide hidden"></div>
+            <div id="edge-guide-v1" class="alignment-guide vertical edge-guide hidden"></div>
+            <div id="edge-guide-v2" class="alignment-guide vertical edge-guide hidden"></div>
             
             <!-- Barra de estado / Herramientas -->
             <div class="status-bar">
                 <div class="zoom-controls">
+                    <button id="btn-undo" title="Deshacer (Ctrl+Z)"><i class="fa-solid fa-rotate-left"></i></button>
+                    <button id="btn-redo" title="Rehacer (Ctrl+Y)"><i class="fa-solid fa-rotate-right"></i></button>
+                    <div class="tool-separator"></div>
                     <button id="zoom-out"><i class="fa-solid fa-minus"></i></button>
                     <span id="zoom-level">100%</span>
                     <button id="zoom-in"><i class="fa-solid fa-plus"></i></button>
@@ -183,26 +191,26 @@
                 <h2><i class="fa-solid fa-wand-magic-sparkles"></i> Filtros</h2>
                 <button id="filter-cancel" class="modal-close"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <div class="filter-workspace">
-                <div class="filter-preview-wrapper">
-                    <img id="filter-preview" src="" alt="Vista previa">
+            <div class="modal-body-scroll">
+                <div class="filter-workspace">
+                    <div class="filter-preview-wrapper">
+                        <img id="filter-preview" src="" alt="Vista previa">
+                    </div>
+                    <div class="filter-grid" id="filter-grid"></div>
                 </div>
-                <div class="filter-grid" id="filter-grid">
-                    <!-- Se llenan dinámicamente -->
-                </div>
-            </div>
-            <div class="filter-sliders" id="filter-sliders">
-                <div class="control-group">
-                    <label>Brillo</label>
-                    <input type="range" id="filter-brightness" min="0" max="200" value="100">
-                </div>
-                <div class="control-group">
-                    <label>Contraste</label>
-                    <input type="range" id="filter-contrast" min="0" max="200" value="100">
-                </div>
-                <div class="control-group">
-                    <label>Saturación</label>
-                    <input type="range" id="filter-saturate" min="0" max="200" value="100">
+                <div class="filter-sliders" id="filter-sliders">
+                    <div class="control-group">
+                        <label>Brillo</label>
+                        <input type="range" id="filter-brightness" min="0" max="200" value="100">
+                    </div>
+                    <div class="control-group">
+                        <label>Contraste</label>
+                        <input type="range" id="filter-contrast" min="0" max="200" value="100">
+                    </div>
+                    <div class="control-group">
+                        <label>Saturación</label>
+                        <input type="range" id="filter-saturate" min="0" max="200" value="100">
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">

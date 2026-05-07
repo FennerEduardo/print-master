@@ -23,9 +23,9 @@ class CropManager {
         this.img = null;
         this.crop = { x: 0, y: 0, w: 0, h: 0 };
         this.scale = 1;
-        this.isDragging = false;
-        this.isResizing = false;
+        this.action = null; // 'move' | 'resize-tl' | 'resize-tr' | 'resize-bl' | 'resize-br'
         this.dragStart = { x: 0, y: 0 };
+        this.cropStart = { x: 0, y: 0, w: 0, h: 0 };
         this.initEvents();
     }
 
@@ -33,9 +33,23 @@ class CropManager {
         document.getElementById("crop-cancel").onclick = () => this.close();
         document.getElementById("crop-reset").onclick = () => this.resetSelection();
         document.getElementById("crop-apply").onclick = () => this.apply();
-        this.selection.addEventListener("mousedown", (e) => this.startDrag(e));
-        document.addEventListener("mousemove", (e) => this.onDrag(e));
-        document.addEventListener("mouseup", () => this.stopDrag());
+
+        this.selection.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+            const handle = e.target.closest(".crop-handle");
+            if (handle) {
+                this.action = "resize-" + handle.dataset.corner;
+            } else {
+                this.action = "move";
+            }
+            this.dragStart = { x: e.clientX, y: e.clientY };
+            this.cropStart = { ...this.crop };
+            document.addEventListener("mousemove", this._onDrag);
+            document.addEventListener("mouseup", this._onUp);
+        });
+
+        this._onDrag = (e) => this.onDrag(e);
+        this._onUp = () => this.stopDrag();
     }
 
     open(src, cb) {
@@ -49,47 +63,95 @@ class CropManager {
             this.canvas.height = this.img.naturalHeight * this.scale;
             this.ctx.drawImage(this.img, 0, 0, this.canvas.width, this.canvas.height);
             this.resetSelection();
+            this.addHandles();
         };
         this.img.src = src;
     }
 
+    addHandles() {
+        this.selection.querySelectorAll(".crop-handle").forEach(h => h.remove());
+        ["tl", "tr", "bl", "br"].forEach(corner => {
+            const h = document.createElement("div");
+            h.className = `crop-handle ${corner}`;
+            h.dataset.corner = corner;
+            this.selection.appendChild(h);
+        });
+    }
+
     resetSelection() {
-        const p = 0.1;
+        const p = 0.05;
         this.crop = {
-            x: this.canvas.width * p, y: this.canvas.height * p,
-            w: this.canvas.width * (1 - 2 * p), h: this.canvas.height * (1 - 2 * p)
+            x: this.canvas.width * p,
+            y: this.canvas.height * p,
+            w: this.canvas.width * (1 - 2 * p),
+            h: this.canvas.height * (1 - 2 * p)
         };
         this.updateSelectionUI();
     }
 
     updateSelectionUI() {
-        const s = this.selection;
-        s.style.left = this.crop.x + "px";
-        s.style.top = this.crop.y + "px";
-        s.style.width = this.crop.w + "px";
-        s.style.height = this.crop.h + "px";
-    }
-
-    startDrag(e) {
-        e.preventDefault();
-        this.isDragging = true;
-        const rect = this.selection.getBoundingClientRect();
-        this.dragStart = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        this.selection.style.left = this.crop.x + "px";
+        this.selection.style.top = this.crop.y + "px";
+        this.selection.style.width = Math.max(30, this.crop.w) + "px";
+        this.selection.style.height = Math.max(30, this.crop.h) + "px";
     }
 
     onDrag(e) {
-        if (!this.isDragging) return;
-        const wrap = this.canvas.getBoundingClientRect();
-        let nx = e.clientX - wrap.left - this.dragStart.x;
-        let ny = e.clientY - wrap.top - this.dragStart.y;
-        nx = Math.max(0, Math.min(nx, this.canvas.width - this.crop.w));
-        ny = Math.max(0, Math.min(ny, this.canvas.height - this.crop.h));
-        this.crop.x = nx;
-        this.crop.y = ny;
+        const dx = e.clientX - this.dragStart.x;
+        const dy = e.clientY - this.dragStart.y;
+        const cw = this.canvas.width, ch = this.canvas.height;
+
+        if (this.action === "move") {
+            let nx = this.cropStart.x + dx;
+            let ny = this.cropStart.y + dy;
+            nx = Math.max(0, Math.min(nx, cw - this.crop.w));
+            ny = Math.max(0, Math.min(ny, ch - this.crop.h));
+            this.crop.x = nx;
+            this.crop.y = ny;
+        } else if (this.action && this.action.startsWith("resize-")) {
+            const corner = this.action.replace("resize-", "");
+            let { x, y, w, h } = this.cropStart;
+
+            if (corner === "br") {
+                w = Math.max(30, w + dx);
+                h = Math.max(30, h + dy);
+            } else if (corner === "bl") {
+                const newX = x + dx;
+                w = Math.max(30, w - dx);
+                h = Math.max(30, h + dy);
+                if (w > 30) this.crop.x = newX;
+            } else if (corner === "tr") {
+                const newY = y + dy;
+                w = Math.max(30, w + dx);
+                h = Math.max(30, h - dy);
+                if (h > 30) this.crop.y = newY;
+            } else if (corner === "tl") {
+                const newX = x + dx;
+                const newY = y + dy;
+                w = Math.max(30, w - dx);
+                h = Math.max(30, h - dy);
+                if (w > 30) this.crop.x = newX;
+                if (h > 30) this.crop.y = newY;
+            }
+
+            // Clamp to canvas
+            if (this.crop.x < 0) { w += this.crop.x; this.crop.x = 0; }
+            if (this.crop.y < 0) { h += this.crop.y; this.crop.y = 0; }
+            w = Math.min(w, cw - this.crop.x);
+            h = Math.min(h, ch - this.crop.y);
+
+            this.crop.w = w;
+            this.crop.h = h;
+        }
+
         this.updateSelectionUI();
     }
 
-    stopDrag() { this.isDragging = false; }
+    stopDrag() {
+        this.action = null;
+        document.removeEventListener("mousemove", this._onDrag);
+        document.removeEventListener("mouseup", this._onUp);
+    }
 
     apply() {
         const sx = this.crop.x / this.scale, sy = this.crop.y / this.scale;
@@ -97,12 +159,14 @@ class CropManager {
         const out = document.createElement("canvas");
         out.width = sw; out.height = sh;
         out.getContext("2d").drawImage(this.img, sx, sy, sw, sh, 0, 0, sw, sh);
-        const dataUrl = out.toDataURL("image/png");
-        if (this.callback) this.callback(dataUrl);
+        if (this.callback) this.callback(out.toDataURL("image/png"));
         this.close();
     }
 
-    close() { this.modal.classList.add("hidden"); }
+    close() {
+        this.modal.classList.add("hidden");
+        this.stopDrag();
+    }
 }
 
 // ========== FILTER MANAGER ==========
@@ -133,7 +197,7 @@ class FilterManager {
         this.src = src;
         this.callback = cb;
         this.preview.src = src;
-        this.currentFilter = currentFilter || "none";
+        this.currentFilter = (currentFilter && currentFilter !== "none") ? currentFilter : "none";
         this.brightness.value = 100;
         this.contrast.value = 100;
         this.saturate.value = 100;
@@ -159,10 +223,7 @@ class FilterManager {
     }
 
     updatePreview() {
-        const b = this.brightness.value, c = this.contrast.value, s = this.saturate.value;
-        const adjust = `brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
-        const base = this.currentFilter === "none" ? "" : this.currentFilter;
-        this.preview.style.filter = base ? `${base} ${adjust}` : adjust;
+        this.preview.style.filter = this.getFilterString();
     }
 
     getFilterString() {
@@ -173,7 +234,8 @@ class FilterManager {
     }
 
     apply() {
-        if (this.callback) this.callback(this.getFilterString());
+        const result = this.getFilterString();
+        if (this.callback) this.callback(result);
         this.close();
     }
 
