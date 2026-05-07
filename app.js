@@ -973,9 +973,10 @@ class PrintApp {
                 
                 ctx.drawImage(img, -w / 2, -h / 2, w, h);
                 
-                imgEl.src = tempCanvas.toDataURL("image/png");
+                imgEl.src = tempCanvas.toDataURL("image/png", 1.0);
                 el.style.transform = 'none';
                 imgEl.style.filter = 'none';
+                el.style.opacity = '1';
                 
                 el.dataset.oldWidth = el.style.width;
                 el.dataset.oldHeight = el.style.height;
@@ -994,6 +995,8 @@ class PrintApp {
                 el.style.top = `${imgData.y - dh}px`;
             }
         }
+        // Give time for browser to process base64 src changes
+        await new Promise(r => setTimeout(r, 500));
         return flattenedData;
     }
 
@@ -1048,6 +1051,19 @@ class PrintApp {
             // Flatten rotated and filtered images
             const flattenedData = await this.flattenForCapture();
 
+            // Disable transitions and animations during capture
+            const style = document.createElement('style');
+            style.innerHTML = `
+                .placed-image { 
+                    transition: none !important; 
+                    animation: none !important; 
+                    opacity: 1 !important;
+                    box-shadow: none !important;
+                }
+                .placed-image img { transition: none !important; filter: none !important; }
+            `;
+            document.head.appendChild(style);
+
             for (let i = 0; i < this.state.pages.length; i++) {
                 const page = this.state.pages[i];
                 const canvasEl = page.element;
@@ -1058,7 +1074,9 @@ class PrintApp {
                 const canvasCapture = await html2canvas(canvasEl, {
                     scale: 3,
                     useCORS: true,
-                    backgroundColor: "#ffffff"
+                    backgroundColor: "#ffffff",
+                    logging: false,
+                    removeContainer: true
                 });
                 
                 marginGuide.style.display = "block";
@@ -1067,6 +1085,9 @@ class PrintApp {
                 if (i > 0) pdf.addPage([w, h], this.state.orientation);
                 pdf.addImage(imgData, "JPEG", 0, 0, w, h);
             }
+
+            // Clean up temporary styles
+            style.remove();
 
             // Restore elements
             this.restoreAfterCapture(flattenedData);
