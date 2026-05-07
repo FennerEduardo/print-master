@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PrintMaster | Configurador de Impresión Premium</title>
+    <meta name="description" content="Configura tus imágenes para impresión de pequeño y gran formato con precisión profesional.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Indie+Flower&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- Iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Izquierdo: Herramientas y Configuración -->
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fa-solid fa-print"></i>
+                <h1>Print<span>Master</span></h1>
+            </div>
+
+            <div class="sidebar-section">
+                <h3><i class="fa-solid fa-file-lines"></i> Configuración de Papel</h3>
+                <div class="control-group">
+                    <label for="paper-size">Tamaño de Papel</label>
+                    <select id="paper-size">
+                        <optgroup label="Estándares Colombia / Latam">
+                            <option value="pliego">Pliego (70x100 cm)</option>
+                            <option value="medio-pliego">1/2 Pliego (50x70 cm)</option>
+                            <option value="cuarto-pliego">1/4 Pliego (35x50 cm)</option>
+                            <option value="octavo-pliego">1/8 Pliego (25x35 cm)</option>
+                            <option value="oficio-col">Oficio CO (21.6x33 cm)</option>
+                        </optgroup>
+                        <optgroup label="Formatos Digitales / USA">
+                            <option value="tabloide">Tabloide (27.9x43.2 cm)</option>
+                            <option value="tabloide-extra">Tabloide Extra (30.4x45.7 cm)</option>
+                            <option value="carta" selected>Carta (21.6x27.9 cm)</option>
+                            <option value="legal">Legal US (21.6x35.6 cm)</option>
+                        </optgroup>
+                        <optgroup label="Serie ISO A">
+                            <option value="a0">A0 (84.1x118.9 cm)</option>
+                            <option value="a1">A1 (59.4x84.1 cm)</option>
+                            <option value="a2">A2 (42x59.4 cm)</option>
+                            <option value="a3">A3 (29.7x42 cm)</option>
+                            <option value="a4">A4 (21x29.7 cm)</option>
+                        </optgroup>
+                        <option value="custom">Personalizado...</option>
+                    </select>
+                </div>
+
+                <div id="custom-size-controls" class="control-group hidden">
+                    <div class="dual-input">
+                        <div>
+                            <label>Ancho (cm)</label>
+                            <input type="number" id="custom-width" value="21.6" step="0.1">
+                        </div>
+                        <div>
+                            <label>Alto (cm)</label>
+                            <input type="number" id="custom-height" value="27.9" step="0.1">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Orientación</label>
+                    <div class="toggle-group">
+                        <button id="btn-portrait" class="active" title="Vertical">
+                            <i class="fa-solid fa-arrows-up-down"></i> Vertical
+                        </button>
+                        <button id="btn-landscape" title="Horizontal">
+                            <i class="fa-solid fa-arrows-left-right"></i> Horizontal
+                        </button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Margen (mm)</label>
+                    <input type="range" id="paper-margin" min="0" max="50" value="5">
+                    <span id="margin-value">5 mm</span>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3><i class="fa-solid fa-images"></i> Imágenes</h3>
+                <div class="upload-area" id="drop-zone">
+                    <input type="file" id="file-input" multiple accept="image/*" hidden>
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <p>Arrastra imágenes o haz clic aquí</p>
+                </div>
+                <div id="image-list" class="image-list"></div>
+            </div>
+
+            <div class="sidebar-footer">
+                <button id="export-pdf" class="btn-primary">
+                    <i class="fa-solid fa-file-pdf"></i> Exportar PDF
+                </button>
+                <button id="reset-canvas" class="btn-secondary">
+                    <i class="fa-solid fa-trash-can"></i> Limpiar Todo
+                </button>
+            </div>
+        </aside>
+
+        <!-- Área Principal: Lienzo -->
+        <main class="canvas-area">
+            <div id="canvas-wrapper">
+                <div id="print-canvas">
+                    <div id="margin-guide"></div>
+                </div>
+            </div>
+            
+            <!-- Barra de estado / Herramientas -->
+            <div class="status-bar">
+                <div class="zoom-controls">
+                    <button id="zoom-out"><i class="fa-solid fa-minus"></i></button>
+                    <span id="zoom-level">100%</span>
+                    <button id="zoom-in"><i class="fa-solid fa-plus"></i></button>
+                </div>
+                <div class="selection-tools hidden" id="selection-tools">
+                    <button id="btn-center-h" title="Centrar Horizontal"><i class="fa-solid fa-arrows-left-right-to-line"></i></button>
+                    <button id="btn-center-v" title="Centrar Vertical"><i class="fa-solid fa-arrows-up-down-to-line"></i></button>
+                    <div class="tool-separator"></div>
+                    <button id="btn-polaroid" title="Efecto Polaroid"><i class="fa-solid fa-camera-retro"></i></button>
+                    <input type="text" id="polaroid-text-input" class="polaroid-input hidden" placeholder="Escribe aquí...">
+                    <div class="tool-separator"></div>
+                    <button id="btn-duplicate" title="Duplicar"><i class="fa-solid fa-copy"></i></button>
+                    <button id="btn-rotate" title="Rotar 90°"><i class="fa-solid fa-rotate"></i></button>
+                    <button id="btn-layer-up" title="Traer al Frente"><i class="fa-solid fa-layer-group"></i></button>
+                    <button id="btn-delete" title="Eliminar" class="danger"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
