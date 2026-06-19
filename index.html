@@ -21,6 +21,7 @@
                 <h1>Print<span>Master</span></h1>
             </div>
 
+            <!-- Configuración de Papel -->
             <div class="sidebar-section">
                 <h3><i class="fa-solid fa-file-lines"></i> Configuración de Papel</h3>
                 <div class="control-group">
@@ -80,29 +81,54 @@
                     <input type="range" id="paper-margin" min="0" max="50" value="5">
                     <span id="margin-value">5 mm</span>
                 </div>
+
+                <div class="preferences-actions">
+                    <button id="btn-save-prefs" class="btn-save-prefs" title="Guardar preferencias">
+                        <i class="fa-solid fa-floppy-disk"></i> Guardar
+                    </button>
+                    <button id="btn-clear-prefs" class="btn-clear-prefs" title="Borrar preferencias guardadas">
+                        <i class="fa-solid fa-rotate-left"></i> Resetear
+                    </button>
+                </div>
             </div>
 
-            <div class="sidebar-section">
+            <!-- Imágenes: Galería + Canvas -->
+            <div class="sidebar-section" style="flex: 1; min-height: 0; display: flex; flex-direction: column;">
                 <h3><i class="fa-solid fa-images"></i> Imágenes</h3>
                 <div class="upload-area" id="drop-zone">
                     <input type="file" id="file-input" multiple accept="image/*" hidden>
                     <i class="fa-solid fa-cloud-arrow-up"></i>
                     <p>Arrastra imágenes o haz clic aquí</p>
                 </div>
-                <div id="image-list" class="image-list"></div>
-            </div>
 
-            <div class="sidebar-section">
-                <h3><i class="fa-solid fa-layer-group"></i> Páginas</h3>
-                <div class="page-controls">
-                    <button id="add-page" class="btn-secondary btn-full">
-                        <i class="fa-solid fa-plus"></i> Añadir Página
-                    </button>
-                    <div id="page-list-sidebar" class="page-list-sidebar">
-                        <!-- Se llenará dinámicamente -->
+                <!-- Galería / Biblioteca -->
+                <div class="gallery-section">
+                    <div class="gallery-header">
+                        <span><i class="fa-solid fa-photo-film"></i> Biblioteca <span id="gallery-count" class="gallery-count">0</span></span>
+                        <div class="gallery-actions">
+                            <button id="btn-add-all" title="Agregar todas al canvas"><i class="fa-solid fa-plus"></i> Todas</button>
+                            <button id="btn-clear-gallery" title="Vaciar biblioteca"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                    </div>
+                    <div id="gallery-grid" class="gallery-grid"></div>
+                    <div id="gallery-empty" class="empty-state">
+                        <i class="fa-solid fa-photo-film"></i>
+                        Importa imágenes para empezar
                     </div>
                 </div>
+
+                <!-- Imágenes en Canvas -->
+                <div class="canvas-images-header">
+                    <span><i class="fa-solid fa-layer-group"></i> En Canvas <span id="canvas-count" class="canvas-count">0</span></span>
+                </div>
+                <div id="image-list" class="image-list"></div>
+                <div id="canvas-empty" class="empty-state">
+                    <i class="fa-solid fa-arrow-up"></i>
+                    Agrega imágenes desde la biblioteca
+                </div>
             </div>
+
+            <!-- Se removió el panel de propiedades -->
 
             <div class="sidebar-footer">
                 <button id="export-pdf" class="btn-primary">
@@ -114,29 +140,22 @@
             </div>
         </aside>
 
-        <!-- Área Principal: Lienzo -->
+        <!-- Área Principal: Lienzos -->
         <main class="canvas-area">
             <div id="canvas-scroll-container">
-                <div id="canvas-wrapper">
-                    <!-- Las mesas de trabajo (páginas) se generarán aquí -->
+                <div id="pages-container">
+                    <!-- Las páginas se inyectarán aquí -->
+                </div>
+                <div class="add-page-wrapper">
+                    <button id="btn-add-page" class="btn-add-page">
+                        <i class="fa-solid fa-file-circle-plus"></i> Nueva Página
+                    </button>
                 </div>
             </div>
-            
-            <!-- Guías de Alineación Globales -->
-            <div id="guide-h" class="alignment-guide horizontal hidden"></div>
-            <div id="guide-v" class="alignment-guide vertical hidden"></div>
-            <!-- Edge guides for image-to-image snapping -->
-            <div id="edge-guide-h1" class="alignment-guide horizontal edge-guide hidden"></div>
-            <div id="edge-guide-h2" class="alignment-guide horizontal edge-guide hidden"></div>
-            <div id="edge-guide-v1" class="alignment-guide vertical edge-guide hidden"></div>
-            <div id="edge-guide-v2" class="alignment-guide vertical edge-guide hidden"></div>
             
             <!-- Barra de estado / Herramientas -->
             <div class="status-bar">
                 <div class="zoom-controls">
-                    <button id="btn-undo" title="Deshacer (Ctrl+Z)"><i class="fa-solid fa-rotate-left"></i></button>
-                    <button id="btn-redo" title="Rehacer (Ctrl+Y)"><i class="fa-solid fa-rotate-right"></i></button>
-                    <div class="tool-separator"></div>
                     <button id="zoom-out"><i class="fa-solid fa-minus"></i></button>
                     <span id="zoom-level">100%</span>
                     <button id="zoom-in"><i class="fa-solid fa-plus"></i></button>
@@ -145,77 +164,92 @@
                     <button id="btn-center-h" title="Centrar Horizontal"><i class="fa-solid fa-arrows-left-right-to-line"></i></button>
                     <button id="btn-center-v" title="Centrar Vertical"><i class="fa-solid fa-arrows-up-down-to-line"></i></button>
                     <div class="tool-separator"></div>
-                    <button id="btn-crop" title="Recortar (Máscara)"><i class="fa-solid fa-crop-simple"></i></button>
-                    <button id="btn-filter" title="Filtros"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
-                    <div class="tool-separator"></div>
-                    <button id="btn-polaroid" title="Efecto Polaroid"><i class="fa-solid fa-camera-retro"></i></button>
-                    <input type="text" id="polaroid-text-input" class="polaroid-input hidden" placeholder="Escribe aquí...">
-                    <div class="tool-separator"></div>
                     <button id="btn-duplicate" title="Duplicar"><i class="fa-solid fa-copy"></i></button>
                     <button id="btn-rotate" title="Rotar 90°"><i class="fa-solid fa-rotate"></i></button>
                     <button id="btn-layer-up" title="Traer al Frente"><i class="fa-solid fa-layer-group"></i></button>
-                    <div class="tool-separator"></div>
-                    <button id="btn-dist-h" title="Distribuir Horizontalmente"><i class="fa-solid fa-distribute-spacing-horizontal fa-grip-lines-vertical"></i></button>
-                    <button id="btn-dist-v" title="Distribuir Verticalmente"><i class="fa-solid fa-grip-lines"></i></button>
-                    <div class="tool-separator"></div>
                     <button id="btn-delete" title="Eliminar" class="danger"><i class="fa-solid fa-trash"></i></button>
                 </div>
             </div>
         </main>
-    </div>
 
-    <!-- Modal de Recorte -->
-    <div id="crop-modal" class="modal-overlay hidden">
-        <div class="modal-content crop-modal-content">
-            <div class="modal-header">
-                <h2><i class="fa-solid fa-crop-simple"></i> Recortar Imagen</h2>
-                <button id="crop-cancel" class="modal-close"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div class="crop-workspace">
-                <div class="crop-canvas-wrapper">
-                    <canvas id="crop-canvas"></canvas>
-                    <div id="crop-selection" class="crop-selection"></div>
+        <!-- Menú Contextual Flotante (Propiedades) -->
+        <div id="context-menu" class="context-menu hidden">
+            <div class="context-header">
+                <h3><i class="fa-solid fa-sliders"></i> Propiedades</h3>
+                <div class="header-actions">
+                    <select id="prop-unit" class="unit-select">
+                        <option value="px">px</option>
+                        <option value="cm">cm</option>
+                        <option value="mm">mm</option>
+                        <option value="in">pulg</option>
+                    </select>
+                    <button id="close-context-menu"><i class="fa-solid fa-xmark"></i></button>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button id="crop-reset" class="btn-secondary"><i class="fa-solid fa-arrows-rotate"></i> Restablecer</button>
-                <button id="crop-apply" class="btn-primary"><i class="fa-solid fa-check"></i> Aplicar Recorte</button>
+            
+            <div class="quad-input">
+                <div class="input-group">
+                    <label>Ancho</label>
+                    <input type="number" id="prop-width" min="0" step="1">
+                </div>
+                <div class="input-group">
+                    <label>Alto</label>
+                    <input type="number" id="prop-height" min="0" step="1">
+                </div>
+                <div class="input-group">
+                    <label>Pos X</label>
+                    <input type="number" id="prop-x" step="1">
+                </div>
+                <div class="input-group">
+                    <label>Pos Y</label>
+                    <input type="number" id="prop-y" step="1">
+                </div>
             </div>
-        </div>
-    </div>
+            
+            <div class="prop-row" style="margin-top: 0.5rem;">
+                <label>Rotación</label>
+                <input type="number" id="prop-rotation" min="0" max="360" step="90" style="width: 70px;">
+                <span style="font-size: 0.75rem; color: var(--text-muted);">°</span>
+                <button id="prop-lock-aspect" class="lock-btn locked" title="Bloquear proporción">
+                    <i class="fa-solid fa-lock"></i>
+                </button>
+            </div>
+            
+            <hr class="prop-divider">
+            
+            <div class="filter-select-group">
+                <label><i class="fa-solid fa-palette"></i> Filtro</label>
+                <select id="prop-filter">
+                    <option value="none">Sin filtro (Original)</option>
+                    <option value="sepia">Sepia (Envejecido)</option>
+                    <option value="grayscale">Blanco y Negro</option>
+                    <option value="vintage">Vintage</option>
+                    <option value="high-contrast">Alto Contraste</option>
+                    <option value="warm">Cálido</option>
+                    <option value="cold">Frío</option>
+                </select>
+            </div>
 
-    <!-- Modal de Filtros -->
-    <div id="filter-modal" class="modal-overlay hidden">
-        <div class="modal-content filter-modal-content">
-            <div class="modal-header">
-                <h2><i class="fa-solid fa-wand-magic-sparkles"></i> Filtros</h2>
-                <button id="filter-cancel" class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+            <div class="checkbox-row">
+                <input type="checkbox" id="prop-polaroid">
+                <label for="prop-polaroid"><i class="fa-solid fa-camera-retro"></i> Polaroid</label>
             </div>
-            <div class="modal-body-scroll">
-                <div class="filter-workspace">
-                    <div class="filter-preview-wrapper">
-                        <img id="filter-preview" src="" alt="Vista previa">
-                    </div>
-                    <div class="filter-grid" id="filter-grid"></div>
-                </div>
-                <div class="filter-sliders" id="filter-sliders">
-                    <div class="control-group">
-                        <label>Brillo</label>
-                        <input type="range" id="filter-brightness" min="0" max="200" value="100">
-                    </div>
-                    <div class="control-group">
-                        <label>Contraste</label>
-                        <input type="range" id="filter-contrast" min="0" max="200" value="100">
-                    </div>
-                    <div class="control-group">
-                        <label>Saturación</label>
-                        <input type="range" id="filter-saturate" min="0" max="200" value="100">
-                    </div>
-                </div>
+
+            <div id="prop-caption-group" class="control-group hidden">
+                <label>Caption</label>
+                <input type="text" id="prop-caption" placeholder="Texto del polaroid...">
             </div>
-            <div class="modal-footer">
-                <button id="filter-reset" class="btn-secondary"><i class="fa-solid fa-arrows-rotate"></i> Restablecer</button>
-                <button id="filter-apply" class="btn-primary"><i class="fa-solid fa-check"></i> Aplicar Filtro</button>
+
+            <div class="format-actions">
+                <button id="btn-copy-format" title="Copiar formato">
+                    <i class="fa-solid fa-copy"></i> Copiar
+                </button>
+                <button id="btn-paste-format" title="Pegar formato" disabled>
+                    <i class="fa-solid fa-paste"></i> Pegar
+                </button>
+                <button id="btn-apply-all-format" title="Aplicar formato a todas" disabled>
+                    <i class="fa-solid fa-object-group"></i> A Todas
+                </button>
             </div>
         </div>
     </div>
@@ -223,7 +257,6 @@
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="tools.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
