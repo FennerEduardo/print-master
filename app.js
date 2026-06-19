@@ -428,19 +428,7 @@ class PrintApp {
             if (file.type.startsWith("image/")) {
                 const reader = new FileReader();
                 reader.onload = (e) => {
-                    // Normalización a sRGB
-                    const img = new Image();
-                    img.onload = () => {
-                        const tempCanvas = document.createElement('canvas');
-                        tempCanvas.width = img.width;
-                        tempCanvas.height = img.height;
-                        const ctx = tempCanvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0);
-                        // Convertir a Data URL puro (descarta el perfil ICC incrustado, forzando sRGB web-safe)
-                        const normalizedDataUrl = tempCanvas.toDataURL('image/jpeg', 0.95);
-                        this.addToGallery(normalizedDataUrl, file.name);
-                    };
-                    img.src = e.target.result;
+                    this.addToGallery(e.target.result, file.name);
                 };
                 reader.readAsDataURL(file);
             }
@@ -1088,26 +1076,28 @@ class PrintApp {
             for (let i = 0; i < this.state.pages.length; i++) {
                 const pageEl = document.getElementById(this.state.pages[i]);
                 
-                const canvas = await html2canvas(pageEl, {
-                    scale: 3, // Reducido a 3 para evitar problemas de memoria/VRAM que causan renders lavados
-                    useCORS: true,
-                    backgroundColor: "#ffffff",
-                    logging: false,
-                    onclone: (clonedDoc) => {
-                        const clonedPage = clonedDoc.getElementById(this.state.pages[i]);
-                        clonedPage.style.boxShadow = "none";
-                        clonedPage.style.background = "#ffffff";
-                        
-                        // Eliminar elementos no deseados explícitamente en el clon
-                        clonedPage.querySelectorAll('.margin-guide').forEach(el => el.remove());
-                        clonedPage.querySelectorAll('.page-controls').forEach(el => el.remove());
-                        clonedPage.querySelectorAll('.page-label').forEach(el => el.remove());
+                // Ocultar guías y controles temporalmente en el DOM original
+                const hideElements = pageEl.querySelectorAll('.margin-guide, .page-controls, .page-label, .resizer');
+                hideElements.forEach(el => el.style.display = 'none');
+
+                const scale = 3;
+                
+                // dom-to-image-more renderiza usando SVG nativo, lo que elimina el 99% de los bugs de opacidad y lavado
+                const imgData = await domtoimage.toJpeg(pageEl, {
+                    quality: 0.98,
+                    bgcolor: '#ffffff',
+                    width: pageEl.clientWidth * scale,
+                    height: pageEl.clientHeight * scale,
+                    style: {
+                        transform: 'scale(' + scale + ')',
+                        transformOrigin: 'top left',
+                        boxShadow: 'none'
                     }
                 });
 
-                // Usar JPEG al 95% en lugar de PNG para evitar bugs de jsPDF con el canal Alpha (transparencias fantasma)
-                const imgData = canvas.toDataURL("image/jpeg", 0.98);
-                
+                // Restaurar elementos ocultos
+                hideElements.forEach(el => el.style.display = '');
+
                 if (i > 0) pdf.addPage();
                 pdf.addImage(imgData, "JPEG", 0, 0, w, h);
             }
